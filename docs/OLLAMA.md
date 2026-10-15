@@ -1,62 +1,67 @@
-# Connect Ollama
+# Connecting Ollama
 
-The application is ready to call a separately hosted Ollama server. No Ollama
-installation, model download, or home-network change was performed as part of
-this source release.
+geko.ai's server calls Ollama's `/api/tags` and `/api/chat` endpoints. The browser
+does not contact Ollama directly, so browser CORS changes are unnecessary.
+Only the configured application administrator can change this connection.
 
-## Connection contract
+## Standalone server
 
-geko.ai expects an HTTPS gateway exposing the native Ollama routes:
-
-| Route | Use |
-| --- | --- |
-| `GET /api/tags` | Discover installed model tags and test access. |
-| `POST /api/chat` | Stream chat replies as newline-delimited JSON. |
-
-Run Ollama on your machine and install a model that fits its available memory.
-For example, after choosing a model appropriate to your hardware:
+Install Ollama on a machine with enough resources, pull a model, and keep the
+service running. Model names must match the installed tag exactly.
 
 ```bash
-ollama pull MODEL_TAG
+ollama pull qwen3:8b
 ```
 
-Forward your chosen HTTPS hostname to Ollama, commonly port 11434, through a
-reverse proxy or tunnel. If your gateway uses a bearer token, enter that token
-in the app's connection settings. Preserve streaming at the proxy: avoid
-collecting the whole upstream body, caching chat responses, or buffering the
-response until generation finishes.
+In **Settings**, enter an endpoint reachable from the application server:
 
-## Configure the app
-
-1. Sign in as the space owner and open **Settings**.
-2. Enter the HTTPS gateway's base URL, without `/api/chat`, a query string,
-   embedded credentials, or a fragment.
-3. Enter the optional bearer token. It is stored only on the server.
-4. Choose **Test connection** to load your installed model tags.
-5. Select a model, review creativity and context size, and save.
-6. Open a conversation and send a message. For an already saved personal
-   message, choose **Reply**. In a shared group, select an AI and choose **Reply**.
-
-Leaving the token field blank preserves an existing saved token. Use **Remove
-saved gateway token** to clear it deliberately. The creativity value 0 is
-supported and is saved as 0.
-
-The current public source contains no gateway URL, token, user database, or
-real home-model configuration.
-
-## Troubleshooting
-
-| Symptom | Check |
+| Location | Example URL |
 | --- | --- |
-| URL rejected | Use HTTPS. LAN, loopback, embedded credentials, query strings, and fragments are rejected. |
-| Gateway cannot be reached | A hosted Worker needs a reachable HTTPS endpoint. A private LAN or Tailscale-only address is insufficient. |
-| HTTP 401 or 403 | Verify the gateway's authentication policy and bearer token. |
-| HTTP 404 | Check that the base URL forwards `/api/tags` and `/api/chat`. |
-| No models listed | Confirm the model is installed in the Ollama instance behind this gateway. |
-| Entire reply arrives at once | Check reverse-proxy buffering. The client also smooths received chunks with a progressive reveal queue. |
-| Empty reply or repeated phrases | Check the model, character definition, and available context. The interface cannot substitute for model quality. |
-| Long first-response delay | The model may be loading. The app shows a waiting indicator and supports cancellation. |
+| Native app and Ollama on the same host | `http://127.0.0.1:11434` |
+| App in Docker, Ollama on its Linux host | `http://host.docker.internal:11434` |
+| Ollama on another LAN host | `http://192.168.1.20:11434` |
+| Authenticated remote gateway | `https://ollama.example.com` |
 
-Requests originate on the app server, so browser CORS exceptions are not needed.
-The gateway token is never included in client-side JavaScript or returned by
-the app's configuration API.
+Compose includes the Linux `host.docker.internal` mapping. Ollama must listen
+on an interface reachable from the container; binding Ollama only to host
+loopback generally prevents that connection. Expose it only to the needed
+private interface/network and firewall it. Do not expose unauthenticated
+Ollama to the internet. For Docker-to-Docker use a private Docker network and
+the Ollama service name.
+
+Enter an optional gateway bearer token, choose **Test connection**, select a
+model, and save. Leaving the token blank preserves the saved token; use
+**Remove saved gateway token** to clear it.
+
+Private HTTP endpoints are permitted by default in standalone mode. Set
+`ALLOW_PRIVATE_OLLAMA=false` to require the hosted-style public HTTPS policy.
+URLs with embedded credentials, query strings, fragments, or non-HTTP schemes
+are rejected. Use the bearer token field rather than embedding a password.
+
+## Hosted Sites adapter
+
+The platform-hosted adapter still needs a reachable public HTTPS gateway.
+Its server cannot reach a private LAN or Tailscale-only endpoint automatically.
+Forward `/api/tags` and `/api/chat` through an authenticated proxy or tunnel.
+
+## Streaming and generation
+
+Ollama must support streaming NDJSON responses. Disable proxy buffering and
+caching; preserve streaming content and allow model warm-up. Upstream chat
+requests time out after 120 seconds; model-list checks after 15 seconds.
+
+Creativity controls model temperature (including 0), and the context selector
+sets `num_ctx` between supported limits. The app sends a repeat penalty and
+character/context instructions. It does not fine-tune the model.
+
+| Problem | Investigation |
+| --- | --- |
+| Connection refused | Ollama listener, host/container address, firewall, service state. |
+| HTTP 401/403 | Proxy token and permitted routes. |
+| No model | Pull a model and check the exact tag. |
+| Slow first reply | Model loading, available VRAM/RAM, GPU support, timeout. |
+| One large reply packet | Proxy buffering; app still reveals text progressively. |
+| Repetitive replies | Model suitability, definition examples, persona, context size, creativity. |
+
+Test with a real conversation after setup. Automated tests mock upstream model
+responses and cannot certify the quality or reachability of a specific server.

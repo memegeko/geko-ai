@@ -57,3 +57,13 @@ next-env.d.ts
 
 # Generated TypeScript build state
 *.tsbuildinfo
+
+# Persistent self-hosted data and backups
+/data/
+/backups/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+!.env.example
+
+/.next-selfhost/

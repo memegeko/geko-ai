@@ -1,11 +1,12 @@
+import {initializeOwner,authConfig} from '@geko/platform';
 import {identity,db,listRecords,saveRecord,getConfig,allCharacters,isAdmin,apiError,connectionPublic} from '../../../lib/server';
 import {validateRecord} from '../../../lib/validation';
 import {characters} from '../../../lib/characters';
 export async function GET(){try{
  const u=await identity();
- await db().prepare("INSERT OR IGNORE INTO config(id,value) VALUES('owner',?)").bind(JSON.stringify(u.userId)).run();
+ await initializeOwner(u);
  const items=await listRecords(u.userId),c=await getConfig('connection');
- return Response.json({user:{id:u.userId,name:u.fullName||u.email.split('@')[0],email:u.email},admin:await isAdmin(u.userId),characters:await allCharacters(u.userId),items,connection:connectionPublic(c)},{headers:{'Cache-Control':'private, no-store'}});
+ return Response.json({auth:authConfig(),user:{id:u.userId,name:u.fullName||u.email.split('@')[0],email:u.email},admin:await isAdmin(u.userId),characters:await allCharacters(u.userId),items,connection:connectionPublic(c)},{headers:{'Cache-Control':'private, no-store'}});
 }catch(e){return apiError(e);}}
 export async function PUT(req:Request){try{
  const u=await identity(),body=await req.json() as any;

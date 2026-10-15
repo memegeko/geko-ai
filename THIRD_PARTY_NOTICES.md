@@ -23,3 +23,9 @@ Character.AI's proprietary code, models, branding, character datasets, and
 conversation exports are not included. Character.AI, Ollama, Google, Microsoft,
 and other names remain the property of their respective owners. No affiliation
 or endorsement is implied.
+
+## Standalone authentication and QR codes
+
+Better Auth provides authentication and its TOTP plugin (MIT). QRCode provides
+QR-code rendering (MIT). Nodemailer provides optional SMTP delivery (MIT-0).
+Dependencies and their transitive licenses remain with their upstream authors.

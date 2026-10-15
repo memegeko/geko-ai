@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0-beta.1 — 2026-10-15
+
+- Added independent Node.js/SQLite hosting with automatic schema setup.
+- Added Docker Compose, a repeatable installer, health checks, and online backups.
+- Added email/password, Google and GitHub OAuth, explicit provider linking,
+  authenticator enrollment, recovery codes, password recovery, and session controls.
+- Gated password and social sessions behind enabled second-factor verification.
+- Restricted registration to configured invited email addresses; administrator
+  ownership no longer depends on which invited user registers first.
+- Retained the existing UI and Sites adapter while supporting private Ollama URLs
+  in standalone installations.
+- Replaced instance-specific documentation with deployment, configuration,
+  authentication, user, architecture, and recovery guides.
+
 ## 0.1.0-beta.1 — 2026-10-15
 
 Initial Beta source release of the independent geko.ai project by memegeko.

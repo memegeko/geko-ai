@@ -25,4 +25,10 @@ jobs:
       - name: Run tests
         run: pnpm test
       - name: Build
-        run: pnpm run build
+        run: pnpm run build:selfhost
+      - name: Exercise packaged production runtime
+        run: pnpm run test:production
+      - name: Validate Compose configuration
+        run: cp .env.example .env && docker compose config --quiet
+      - name: Build container image
+        run: docker build -t geko-ai:ci .
