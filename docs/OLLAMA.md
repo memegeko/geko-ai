@@ -4,7 +4,23 @@ geko.ai's server calls Ollama's `/api/tags` and `/api/chat` endpoints. The brows
 does not contact Ollama directly, so browser CORS changes are unnecessary.
 Only the configured application administrator can change this connection.
 
-## Standalone server
+## Bundled Ollama
+
+The installer starts Ollama on a private Docker network and configures the app
+with `http://ollama:11434`. Model weights persist in a named volume.
+
+```bash
+cd /opt/geko-ai
+sudo docker compose exec ollama ollama list
+sudo docker compose exec ollama ollama pull qwen3:8b
+sudo docker compose logs --tail=100 ollama
+```
+
+Choosing **Download later** or `--skip-model` skips model weights, while still
+installing the site and Ollama container. Pull the configured model later using
+the command above. If you pull a different model, select it in the site Settings.
+
+## Existing server
 
 Install Ollama on a machine with enough resources, pull a model, and keep the
 service running. Model names must match the installed tag exactly.
@@ -17,6 +33,7 @@ In **Settings**, enter an endpoint reachable from the application server:
 
 | Location | Example URL |
 | --- | --- |
+| Bundled Ollama | `http://ollama:11434` |
 | Native app and Ollama on the same host | `http://127.0.0.1:11434` |
 | App in Docker, Ollama on its Linux host | `http://host.docker.internal:11434` |
 | Ollama on another LAN host | `http://192.168.1.20:11434` |
@@ -34,15 +51,9 @@ model, and save. Leaving the token blank preserves the saved token; use
 **Remove saved gateway token** to clear it.
 
 Private HTTP endpoints are permitted by default in standalone mode. Set
-`ALLOW_PRIVATE_OLLAMA=false` to require the hosted-style public HTTPS policy.
+`ALLOW_PRIVATE_OLLAMA=false` to require a public HTTPS endpoint.
 URLs with embedded credentials, query strings, fragments, or non-HTTP schemes
 are rejected. Use the bearer token field rather than embedding a password.
-
-## Hosted Sites adapter
-
-The platform-hosted adapter still needs a reachable public HTTPS gateway.
-Its server cannot reach a private LAN or Tailscale-only endpoint automatically.
-Forward `/api/tags` and `/api/chat` through an authenticated proxy or tunnel.
 
 ## Streaming and generation
 

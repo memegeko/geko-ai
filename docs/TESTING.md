@@ -1,82 +1,49 @@
 # Verification report
 
-Version: **0.2.0-beta.1**, checked **2026-10-15** with Node.js 24.19.0.
-
-## Automated checks
+Version **0.2.0-beta.2**, checked **2026-10-16** with Node.js 24.19.0.
 
 | Check | Result |
 | --- | --- |
 | TypeScript | Passed. |
-| Application, stream, auth, storage, and installer suite | **72 tests passed; 0 failed.** |
+| Application, streams, auth, storage, bootstrap, installer tests | **79 passed, 0 failed.** |
 | Standalone Next.js production build | Passed. |
-| Sites/Vinext build and runtime separation | Passed; platform adapter present and standalone SQLite imports absent. |
-| Packaged production HTTP smoke test | Passed, including the same startup entrypoint and traced dependencies used by Docker. |
+| Packaged production HTTP smoke test | Passed. |
 | Installer shell syntax | Passed. |
-| Compose YAML structure | Parsed; persistent volume and loopback-only port checked. |
+| Repository documentation links | Checked. |
 
-The application suite runs route handlers with isolated identity and real
-in-memory SQLite, while mocking upstream Ollama. The standalone suite runs the
-real Better Auth handler and persistent file-backed SQLite in temporary folders.
-The installer test simulates Docker commands to check environment generation,
-input validation, file permissions, and preserving an existing configuration.
-It does not claim that Docker was launched.
+The application route suite uses real in-memory SQLite and isolated test
+identities. Auth tests use Better Auth with a temporary file-backed database.
+Ollama responses are mocked; the suite does not download model weights.
 
-## Covered behavior
+Installer checks cover input rejection, random secrets, mode-600 configuration,
+repeat runs, download and skip modes, external Ollama, NVIDIA configuration,
+failed start/pull recovery, and running the script through piped stdin. Docker
+commands are simulated in these local tests. Initial connection defaults are
+checked for seeding once and preserving owner-saved settings.
 
-- Anonymous requests, account-scoped records, shared character visibility,
-  owner-only connection configuration, and private group-context boundaries.
-- Character create/edit/delete, snapshots, avatars, validation, favorites,
-  profiles, personas, lorebooks, explicit memories, and saved chat changes.
-- Streaming NDJSON, packet boundaries, UTF-8, progressive grapheme-safe reveal,
-  Stop, regeneration alternatives, and errors.
-- Two human seats/two AI limit, membership enforcement, invitation rotation,
-  concurrent claims/messages, generation locks, and persisted shared replies.
-- Standalone invite-only registration, password hashing, configured-admin
-  ownership, revoked allowlist access, and rejection of forged platform headers.
-- Google/GitHub authorization URL construction and callback paths with test
-  credentials; no real provider account is contacted by these tests.
-- CSRF-origin rejection and repeated-password-attempt rate limiting.
-- Inactive-until-verified TOTP enrollment, encrypted stored secrets, password
-  challenges, session-bound MFA gating for simulated social sessions,
-  single-use recovery codes, and sign-out.
-- Transaction rollback, migration initialization/idempotence, and local storage.
-- Installer-generated random secrets, restrictive `.env` permissions,
-  noninteractive setup, repeat runs, and safe post-login navigation.
+The production smoke test stages the traced Next package with the same
+entrypoint/files as Docker. Through real HTTP it checks pages/assets,
+invite-only registration, anonymous rejection, account isolation, automatic
+connection seeding, local Ollama discovery/streaming against a stub, two-account
+groups, online backups, and restart persistence. Saved AI settings survive a
+restart despite different installer defaults.
 
-## Production package HTTP check
+## Container verification
 
-`pnpm run test:production` stages the exact Next standalone output plus the
-files copied by the Dockerfile, then runs its production entrypoint against an
-isolated database. It checks:
+A Docker daemon is unavailable in the authoring environment. GitHub CI is
+configured to validate CPU/NVIDIA Compose configurations, build the real image,
+and run the installer with actual app/Ollama containers using `--skip-model`.
+It checks application health and confirms that the Ollama model list is empty.
+These CI checks are distinct from the locally passing checks above; consult
+the workflow result for their actual status.
 
-1. Application pages, login/security pages, logo, and original character artwork.
-2. Anonymous rejection, administrator/friend registration, and record isolation.
-3. A local HTTP Ollama stub, model discovery, and streamed personal replies.
-4. Two-account group joining and a server-persisted group reply.
-5. A consistent SQLite online backup.
-6. Restarting the production process while retaining the account session and
-   saved conversations.
+## Not covered locally
 
-This is server-level testing. It does not certify visual layout or browser
-click/keyboard behavior. The same mint/charcoal UI and original assets are kept.
+- Clean OS package installation and GPU toolkit/driver configuration.
+- Real model downloads, GPU loading, inference quality, or hardware performance.
+- Real Google/GitHub authorization, SMTP delivery, DNS, and HTTPS certificates.
+- Browser visual/accessibility testing and a phone scanning a TOTP QR code.
+  TOTP flows are exercised with independently generated codes.
 
-## Not verified in this environment
-
-- A Docker daemon/container build and launch: Docker is unavailable here.
-  CI is configured to build the Docker image after the production smoke test.
-- Real Google or GitHub account authorization, provider email selection, and
-  explicit account linking against a live provider app.
-- Real SMTP delivery, email verification, or password-reset emails.
-- A physical authenticator app scanning the QR code (TOTP is exercised with
-  independently computed codes), or visual accessibility/browser interaction.
-- A real home-hosted Ollama model, GPU loading, model quality, proxy buffering,
-  public DNS, and HTTPS certificates.
-- Migrating production D1 accounts/data to local SQLite; no bulk migration tool
-  is claimed.
-
-## Before production rollout
-
-Build/start Compose on the target host, configure HTTPS, register the admin,
-configure/test each desired OAuth provider and SMTP, enable and recover from
-2FA using a real phone, invite a second account, and exercise a real model.
-Verify a backup can be restored on an isolated test instance.
+After installing on your server, verify sign-in, a real model response, optional
+providers, and a backup/restore using your actual configuration.

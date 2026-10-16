@@ -3,7 +3,8 @@
 ## Start a conversation
 
 Sign in to the installation, choose a starter character in Discover, and send
-a message. The administrator must first connect Ollama in Settings. Without
+a message. The installer connects Ollama automatically. A selected model must be downloaded
+before replies work. Connection details can be changed in Settings. Without
 a connection, messages are saved and an explicit notice appears; the app does
 not supply fabricated demo replies.
 

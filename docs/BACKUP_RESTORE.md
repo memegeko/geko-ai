@@ -14,13 +14,13 @@ Native installation:
 ```bash
 pnpm run backup
 # Or choose a destination:
-node scripts/selfhost/backup.mjs /secure/backups/geko.sqlite
+node scripts/backup.mjs /secure/backups/geko.sqlite
 ```
 
 Docker:
 
 ```bash
-docker compose exec app node scripts/selfhost/backup.mjs /app/data/backup.sqlite
+docker compose exec app node scripts/backup.mjs /app/data/backup.sqlite
 docker compose cp app:/app/data/backup.sqlite ./backups/geko.sqlite
 ```
 
@@ -57,11 +57,9 @@ Native restore follows the same stopped-process sequence with `DATA_DIR`.
 A database restore may restore old sessions; revoke sessions after a recovery
 when compromise is suspected.
 
-## From an existing hosted Sites deployment
+## Model storage
 
-The standalone runtime is independent, but platform account IDs and D1 storage
-are not a local login database. There is no automatic account takeover,
-password migration, or production D1 extraction in the installer. Personal
-conversation JSON exports preserve conversation content only; a bulk importer
-for every resource type is not implemented. Retain the hosted deployment and
-its exports until a separate data migration has been validated.
+Downloaded weights live in the separate `geko-ai_ollama-data` Docker volume.
+They can be downloaded again with `docker compose exec ollama ollama pull TAG`.
+Keep the application data and `.env` backups even when you can redownload models.
+Never run `docker compose down -v` unless you intend to erase persistent data.

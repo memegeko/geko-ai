@@ -1,202 +1,139 @@
-<a id="readme-top"></a>
-
 <div align="center">
-
-<img src="public/brand/geko-mark.svg" width="140" alt="geko.ai gecko chat logo">
+<img src="public/brand/geko-mark.svg" width="112" alt="geko.ai gecko logo">
 
 # geko.ai
 
-### Your characters. Your conversations. Your own little universe.
+**Your characters. Your conversations. Your server.**
 
-A self-hosted character-chat application with Ollama inference, private
-conversations, personas, lorebooks, explicit memories, and shared group chats.
+Private character chats and shared AI groups, powered by your own Ollama models.
 
 [![CI](https://github.com/memegeko/geko-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/memegeko/geko-ai/actions/workflows/ci.yml)
-[![Beta](https://img.shields.io/badge/status-beta-B8EFCE)](CHANGELOG.md)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/license-MIT-2ea44f)](LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-B8EFCE)](LICENSE)
 
-[Install](#installation) · [Features](#features) ·
-[Authentication](docs/AUTHENTICATION.md) · [Documentation](#documentation) ·
-[Report a bug](https://github.com/memegeko/geko-ai/issues)
-
+[Installation](#install-with-one-command) · [Server guide](docs/SELF_HOSTING.md) · [Accounts](docs/AUTHENTICATION.md) · [Ollama](docs/OLLAMA.md)
 </div>
 
----
+## Install with one command
 
-> [!NOTE]
-> Beta software. A model server is required for generated replies. Google and
-> GitHub login become available after the administrator supplies OAuth app
-> credentials. Password login and authenticator-based 2FA run locally.
-
-<details>
-<summary>Table of contents</summary>
-
-- [About](#about)
-- [Installation](#installation)
-- [Features](#features)
-- [Accounts and authentication](#accounts-and-authentication)
-- [How it works](#how-it-works)
-- [Documentation](#documentation)
-- [Project status and limitations](#project-status-and-limitations)
-- [Contributing](#contributing)
-- [License](#license)
-
-</details>
-
-## About
-
-geko.ai pairs a mint-and-charcoal interface with a model server controlled by
-its administrator. Each installation has its own domain, accounts, database,
-configuration, and conversations. No ChatGPT account, Sites subscription,
-Cloudflare service, or paid inference API is required for standalone hosting.
-
-The application includes eight original starter characters. Custom characters
-can stay private or be shared with the installation's invited users.
-
-## Installation
-
-The easiest path is Docker Engine with Docker Compose v2 on a Linux host.
-Clone the repository using an account with repository access, then run:
+Run on your **Linux server** over SSH:
 
 ```bash
-git clone https://github.com/memegeko/geko-ai.git
-cd geko-ai
-bash scripts/install.sh
+curl -fsSL https://raw.githubusercontent.com/memegeko/geko-ai/main/install.sh | sudo bash
 ```
 
-The installer asks for the public origin and administrator email, creates a
-random authentication secret, writes a protected `.env`, and starts the
-application with persistent storage. It preserves existing settings and data
-on subsequent runs. Docker must already be installed; the script does not
-change the host's package manager or firewall.
+Already root? Replace `sudo bash` with `bash`. You need curl to download the
+installer; it installs the remaining host dependencies. The terminal wizard uses
+arrow keys, Tab, and Enter, with a text fallback on minimal terminals.
 
-For unattended setup:
+The wizard asks for your site address, administrator email, model, and hardware.
+It downloads the source into `/opt/geko-ai`, installs Docker/Compose when missing,
+builds the site, runs database migrations, generates a private authentication
+secret, starts persistent services, and configures the AI connection.
+
+| AI choice | What gets installed |
+| --- | --- |
+| **Install and download** | Site + local Ollama + selected model weights. |
+| **Download later** | Site + local Ollama, with no model weights downloaded. |
+| **Existing Ollama** | Site connected to your existing endpoint; no local Ollama or model download. |
+
+The default model tag is `qwen3:8b`; you can choose another. Model resource needs
+vary: check available RAM, VRAM, and disk space before choosing a large model.
+CPU inference is supported. NVIDIA mode sets up the container toolkit when
+needed; a working NVIDIA host driver must already be installed.
+
+**Access:** for an HTTPS domain, point your existing reverse proxy at
+`127.0.0.1:3000`. For a server without a domain, choose `http://localhost:3000`
+and connect from your computer with:
 
 ```bash
-bash scripts/install.sh \
-  --url https://chat.example.com \
-  --admin-email admin@example.com \
-  --non-interactive
+ssh -L 3000:127.0.0.1:3000 user@your-server
 ```
 
-Point an HTTPS reverse proxy at `127.0.0.1:3000`, open the configured domain,
-and create an account using `ADMIN_EMAIL`. A Caddy example is included in
-[deploy/Caddyfile.example](deploy/Caddyfile.example). For a local-only trial,
-use `http://localhost:3000` as the origin.
+Then open **http://localhost:3000**, choose **Create an invited account**, and
+register using the administrator email you entered. You choose your password
+in the browser. Optional Google/GitHub login needs your own OAuth credentials.
 
-Read the [self-hosting guide](docs/SELF_HOSTING.md) for Docker, native Node.js,
-networking, first-run setup, updates, and troubleshooting.
+### Install without downloading a model
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+```bash
+curl -fsSL https://raw.githubusercontent.com/memegeko/geko-ai/main/install.sh | sudo bash -s -- --skip-model
+```
 
-## Features
+To download it later:
 
-| Area | Behavior |
+```bash
+cd /opt/geko-ai
+sudo docker compose exec ollama ollama pull qwen3:8b
+```
+
+### Unattended setup
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/memegeko/geko-ai/main/install.sh | sudo bash -s -- \
+  --non-interactive --url https://chat.example.com \
+  --admin-email you@example.com --model qwen3:8b --gpu cpu
+```
+
+Use `--ollama-url http://192.168.2.20:11434` to reuse a model server, `--dir` to
+choose a folder, or `--help` for every option. `--skip-start` writes and validates
+configuration without starting containers. `--no-deps` uses an existing Docker
+installation and does not change host packages.
+
+## What you get
+
+- Mint and charcoal character discovery, original starter characters, search,
+  favorites, custom characters, and avatar uploads.
+- Persistent personal chats, streaming replies, Stop, editing, alternatives,
+  ratings, pinned context, and conversation JSON export.
+- Personas, keyword-triggered lorebooks, and explicit character memories.
+- Shared groups for **two people and up to two AI characters**, with invitations
+  and server-persisted replies. Personal lorebooks and memories stay private.
+- Invite-only email/password accounts, optional Google/GitHub login, TOTP 2FA,
+  recovery codes, and session management. SMTP enables email recovery.
+- Local SQLite, online backups, persistent model storage, and automatic restart.
+
+## Manage your server
+
+Run these in `/opt/geko-ai`:
+
+| Task | Command |
 | --- | --- |
-| Discovery | Search, categories, original starter characters, and favorites. |
-| Character editor | Personality definitions, descriptions, greetings, tags, avatar uploads, and private/shared visibility. |
-| Conversations | Saved histories, editing, regeneration, alternatives, ratings, copying, pins, truncation, and JSON export. |
-| Streaming | Incremental Ollama responses with a separate character-reveal queue and Stop. |
-| Personas | Private profiles selected per conversation or used by default. |
-| Lorebooks | Keyword-triggered and always-included world details. |
-| Memories | Explicit user-maintained facts associated with a character. |
-| Groups | Up to **2 people and 2 AI characters**, room invitations, shared history, and next-speaker selection. |
-| Accounts | Email/password, optional Google and GitHub OAuth, explicit provider linking, and sign-out/session management. |
-| Two-factor authentication | Authenticator enrollment, sign-in challenges, single-use recovery codes, and account controls. |
-| Operations | Automatic schema setup, Docker Compose, a setup script, SQLite backups, and general-purpose deployment documentation. |
+| Service status | `sudo docker compose ps` |
+| Follow logs | `sudo docker compose logs -f` |
+| Stop | `sudo docker compose stop` |
+| Start | `sudo docker compose up -d --wait` |
+| Upgrade with a backup | `sudo bash install.sh --update --non-interactive` |
 
-Ratings are stored feedback, not model training. Memories are entered
-explicitly, not extracted automatically.
+Rerunning the installer preserves `.env`, the database, saved AI settings, and
+model weights. Updates refuse to overwrite edited tracked files. A failed
+model pull can be resumed by rerunning the installer.
 
-## Accounts and authentication
+## Repository layout
 
-Registration is invite-only. Set `ADMIN_EMAIL` and add other permitted addresses
-to `ALLOWED_EMAILS` in `.env`. The configured administrator controls the shared
-Ollama connection; another user cannot become the administrator by registering
-first.
-
-Password login works without external providers. To enable optional providers,
-set the corresponding client ID and secret:
-
-| Provider | Callback URL |
+| Path | Contents |
 | --- | --- |
-| Google | `https://chat.example.com/api/auth/callback/google` |
-| GitHub | `https://chat.example.com/api/auth/callback/github` |
-
-Replace the example origin with the installation's `BETTER_AUTH_URL`.
-Accounts are not merged automatically because email addresses happen to match.
-Sign in first, then use **Settings → Security → Connected login methods** to
-connect another provider with the same email.
-
-Users can enable an authenticator in **Settings → Security**. A code must be
-verified before enrollment completes. Enabled 2FA also gates application access
-after social login. Recovery codes should be stored separately from the server.
-
-SMTP is optional for login, but required for password-reset email and optional
-email verification. See [authentication](docs/AUTHENTICATION.md).
-
-## How it works
-
-The standalone server runs Next.js on Node.js 24.15 or newer. Application records,
-authentication data, and shared rooms are stored in a persistent SQLite database.
-The server contacts Ollama; browsers never receive the gateway bearer token.
-LAN and Docker-host Ollama endpoints are supported.
-
-Personal records belong to their authenticated owner. A group has two human
-seats and stores its own history. Group prompts use shared messages, selected
-characters, pins, and explicitly shared personas. Personal memories and
-lorebooks are excluded from group prompts.
-
-A separate adapter retains compatibility with ChatGPT Sites. That hosted mode
-continues to use platform-managed identity and D1. Standalone login providers
-and SQLite do not alter the authentication of an existing Sites deployment.
-
-See [architecture](docs/ARCHITECTURE.md) and the
-[user guide](docs/USER_GUIDE.md) for details.
+| `install.sh` | Downloadable server installer and terminal wizard. |
+| `compose.yaml`, `Dockerfile` | Site and optional Ollama services. |
+| `src/app/` | Website, login/security pages, and API routes. |
+| `src/lib/` | Authentication, SQLite storage, prompts, and streaming. |
+| `database/` | Schema and immutable SQL migrations. |
+| `scripts/` | Startup, migration, backup, and production verification. |
+| `deploy/` | NVIDIA Compose override and reverse proxy example. |
+| `public/` | Logo, icons, and character artwork. |
+| `tests/`, `docs/` | Automated checks and self-hosting documentation. |
 
 ## Documentation
 
-| Guide | Contents |
-| --- | --- |
-| [Self-hosting](docs/SELF_HOSTING.md) | Install script, Docker, native Node, reverse proxy, updates, and diagnostics. |
-| [Authentication](docs/AUTHENTICATION.md) | Passwords, OAuth apps, invite lists, account linking, 2FA, and email. |
-| [Configuration](docs/CONFIGURATION.md) | Environment variables and persistence. |
-| [User guide](docs/USER_GUIDE.md) | Characters, chats, personas, lorebooks, memories, and groups. |
-| [Ollama](docs/OLLAMA.md) | Local and remote inference connections. |
-| [Architecture](docs/ARCHITECTURE.md) | Runtime adapters, requests, storage, identity, and streaming. |
-| [Backup and recovery](docs/BACKUP_RESTORE.md) | Consistent SQLite backups, restore, and secrets. |
-| [Development](docs/DEVELOPMENT.md) | Local development and checks. |
-| [Testing](docs/TESTING.md) | Verified behavior and outstanding checks. |
-| [Security](SECURITY.md) | Deployment boundaries and reporting. |
+[Server setup](docs/SELF_HOSTING.md) · [Configuration](docs/CONFIGURATION.md) ·
+[Authentication](docs/AUTHENTICATION.md) · [Ollama](docs/OLLAMA.md) ·
+[Backup and restore](docs/BACKUP_RESTORE.md) · [User guide](docs/USER_GUIDE.md) ·
+[Development](docs/DEVELOPMENT.md) · [Architecture](docs/ARCHITECTURE.md) ·
+[Verification](docs/TESTING.md)
 
-## Project status and limitations
+This is beta software. Actual model quality and speed depend on your hardware
+and chosen model. Voice, image generation, automatic memory extraction, and
+Character.AI imports are not implemented.
 
-- Beta release; read the testing report before production use.
-- SQLite hosting supports one application instance on one host. Shared network
-  filesystems and horizontal replicas are not supported.
-- Google/GitHub require provider registration, credentials, and matching callback
-  URLs. The installer cannot create those external registrations.
-- Group updates use polling; there is no WebSocket service.
-- Voice calls, image generation, automatic memory extraction, and Character.AI
-  data import are not implemented.
-- Model quality, response speed, context retention, and consistency depend on
-  Ollama, the selected model, and hardware.
-- Existing Sites data is not silently migrated into a standalone installation.
-  See the backup guide for the current migration boundary.
-
-## Contributing
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md). Include reproduction steps and relevant
-checks. Never include private conversations, OAuth secrets, session cookies,
-or database backups in an issue or pull request.
-
-## License
-
-Project code is distributed under the [MIT License](LICENSE). Third-party
-notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-geko.ai is independent of Character.AI, Google, GitHub, Microsoft, Ollama, and
-OpenAI. Product names and trademarks belong to their respective owners.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+Project code is [MIT licensed](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md).
+geko.ai is an independent project by [memegeko](https://github.com/memegeko),
+with no affiliation to Character.AI or model providers.

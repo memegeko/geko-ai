@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import ts from 'typescript';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
-await mkdir('.sites-runtime/tests',{recursive:true});
-const source=await readFile('lib/reply-stream.ts','utf8');
+await mkdir('.test-cache',{recursive:true});
+const source=await readFile('src/lib/reply-stream.ts','utf8');
 const output=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}});
-await writeFile('.sites-runtime/tests/reply-stream.mjs',output.outputText);
-const {readOllamaReply,createReplyReveal}=await import('../.sites-runtime/tests/reply-stream.mjs');
+await writeFile('.test-cache/reply-stream.mjs',output.outputText);
+const {readOllamaReply,createReplyReveal}=await import('../.test-cache/reply-stream.mjs');
 const encode=s=>new TextEncoder().encode(s);
 const packet=text=>JSON.stringify({message:{content:text}})+'\n';
 function clock(){let time=0,serial=0;const tasks=new Map();return {now:()=>time,schedule:cb=>{const id=++serial;tasks.set(id,cb);return id;},cancel:id=>tasks.delete(id),hidden:()=>false,step(){time+=12;const callbacks=[...tasks.values()];tasks.clear();callbacks.forEach(cb=>cb());},drain(){let ticks=0;while(tasks.size){this.step();if(++ticks>10000)throw new Error('Typing queue never settled');}},pending:()=>tasks.size};}

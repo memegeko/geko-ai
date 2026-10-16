@@ -11,7 +11,7 @@ services:
       HOSTNAME: 0.0.0.0
       PORT: 3000
     ports:
-      - "127.0.0.1:${GEKO_PORT:-3000}:3000"
+      - "${GEKO_BIND:-127.0.0.1}:${GEKO_PORT:-3000}:3000"
     volumes:
       - geko-data:/app/data
     extra_hosts:
@@ -25,5 +25,23 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [local]
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: [CMD, ollama, list]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 volumes:
   geko-data:
+  ollama-data:

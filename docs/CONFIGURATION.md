@@ -9,7 +9,12 @@ and passes values to the application; recreate containers after changes.
 | `BETTER_AUTH_SECRET` | Required | Random secret ≥32 characters; installer generates 64 hex characters. Preserve across upgrades. |
 | `ADMIN_EMAIL` | Required | Allowed address that can initialize the application's saved owner. |
 | `ALLOWED_EMAILS` | Empty | Additional comma-separated invited addresses. Admin is always allowed. |
-| `GEKO_PORT` | `3000` | Host loopback port published by Compose. |
+| `GEKO_PORT` | `3000` | Host application port published by Compose. |
+| `GEKO_BIND` | `127.0.0.1` | Host bind; `0.0.0.0` permits a remote proxy with appropriate firewall restrictions. |
+| `COMPOSE_PROFILES` | `local` | Enable bundled Ollama; empty for external inference. |
+| `COMPOSE_FILE` | `compose.yaml` | NVIDIA mode adds `:deploy/compose.nvidia.yaml`. |
+| `GEKO_DOWNLOAD_MODEL` | `true` | Installer pulls configured model on each run; `false` skips weights. |
+| `OLLAMA_URL` / `OLLAMA_MODEL` | Bundled endpoint / `qwen3:8b` | Seed initial database connection only; saved owner settings win later. |
 | `DATA_DIR` | Native `./data`; container `/app/data` | Persistent directory containing `geko.sqlite` and WAL files. |
 | `ALLOW_PRIVATE_OLLAMA` | `true` in standalone | Permit HTTP and private-address Ollama endpoints for the administrator. Set `false` to require public HTTPS. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional pair | Enable Google OAuth. |
@@ -29,5 +34,7 @@ server data. OAuth token encryption and 2FA secret encryption depend on the
 authentication secret; app record data and the Ollama configuration are not
 whole-database encrypted. Use encrypted disks/backups when needed.
 
-The base Compose file publishes loopback only and mounts one named data volume.
-It does not include an Ollama model, an HTTPS proxy, or an SMTP server.
+Compose publishes the app on loopback by default. It uses separate named
+volumes for application data and Ollama model storage. The local profile starts
+Ollama without exposing its port. Model weights are downloaded by the installer,
+not baked into the image. HTTPS proxy and SMTP are configured separately.

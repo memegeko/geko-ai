@@ -3,7 +3,7 @@
 Standalone authentication uses Better Auth with persistent SQLite storage.
 Passwords are hashed by the library. Session cookies are HttpOnly, use the
 same-site policy supplied by Better Auth, and are Secure on HTTPS origins.
-The app does not trust incoming ChatGPT identity headers in standalone mode.
+The app verifies its own server-side sessions and never trusts identity headers from clients.
 
 ## Administrator and invited users
 
@@ -122,9 +122,6 @@ Authentication and second-factor endpoints use persisted rate limiting. A
 trusted reverse proxy must replace client-supplied forwarded headers. Without
 a usable client IP the library uses a shared per-path bucket, which is safer
 than disabling limits but may throttle multiple users together.
-
-The Sites adapter keeps its existing platform-managed identity; these local
-OAuth and password settings apply only to a standalone installation.
 
 References: [Better Auth SQLite](https://better-auth.com/docs/adapters/sqlite),
 [2FA](https://better-auth.com/docs/plugins/2fa),

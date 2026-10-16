@@ -6,21 +6,37 @@ import {readFile,mkdir,writeFile,readdir} from 'node:fs/promises';
 import path from 'node:path';
 const root=process.cwd();
 const sqlite=new DatabaseSync(':memory:');
-for(const file of (await readdir('drizzle')).filter(f=>f.endsWith('.sql')).sort())sqlite.exec(await readFile('drizzle/'+file,'utf8'));
+for(const file of (await readdir('database/migrations')).filter(f=>f.endsWith('.sql')).sort())sqlite.exec(await readFile('database/migrations/'+file,'utf8'));
 globalThis.__gekoUser={userId:'alice',email:'alice@example.test',fullName:'Alice',displayName:'Alice'};
 globalThis.__gekoDB={async batch(statements){sqlite.exec('BEGIN');try{const out=[];for(const statement of statements)out.push(await statement.run());sqlite.exec('COMMIT');return out;}catch(e){sqlite.exec('ROLLBACK');throw e;}},prepare(sql){let params=[];return {bind(...p){params=p;return this;},async first(){return sqlite.prepare(sql).get(...params)||null;},async all(){return {results:sqlite.prepare(sql).all(...params)};},async run(){sqlite.prepare(sql).run(...params);return {success:true};}};}};
-await mkdir('.sites-runtime/tests',{recursive:true});
+await mkdir('.test-cache',{recursive:true});
 const compiled=new Set();
-await writeFile('.sites-runtime/tests/mock-env.mjs','export const env={DB:globalThis.__gekoDB};');
-await writeFile('.sites-runtime/tests/mock-auth.mjs','export async function getChatGPTUser(){return globalThis.__gekoUser;}');
-async function compile(source){const abs=path.resolve(source);const filename=path.relative(root,abs).replaceAll('/','_').replace(/\.tsx?$/,'.mjs');const target=path.join(root,'.sites-runtime/tests',filename);if(compiled.has(abs))return target;compiled.add(abs);let content=await readFile(abs,'utf8');const replacements=[];for(const match of content.matchAll(/from\s+['"]([^'"]+)['"]/g)){const spec=match[1];if(spec==='cloudflare:workers')replacements.push([spec,'./mock-env.mjs']);else if(spec==='@geko/platform'){const dep=await compile(path.resolve('lib/platform.ts'));replacements.push([spec,'./'+path.basename(dep)]);}else if(spec.endsWith('chatgpt-auth'))replacements.push([spec,'./mock-auth.mjs']);else if(spec.startsWith('.')){const dep=await compile(path.resolve(path.dirname(abs),spec+'.ts'));replacements.push([spec,'./'+path.basename(dep)]);}}for(const [a,b] of replacements)content=content.replaceAll(`'${a}'`,`'${b}'`).replaceAll(`"${a}"`,`"${b}"`);const output=ts.transpileModule(content,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}});await writeFile(target,output.outputText);return target;}
+await writeFile('.test-cache/mock-platform.mjs', `
+export function database(){return globalThis.__gekoDB;}
+export async function currentUser(){return globalThis.__gekoUser;}
+export async function initializeOwner(user){await database().prepare("INSERT OR IGNORE INTO config(id,value) VALUES('owner',?)").bind(JSON.stringify(user.userId)).run();}
+export function authConfig(){return {mode:'selfhost',signIn:'/login',signOut:'/login?signout=1',security:'/security',providers:[],passwordReset:false};}
+export function privateOllamaAllowed(){return true;}
+`);
+async function compile(source){
+ const abs=path.resolve(source),filename=path.relative(root,abs).replaceAll('/','_').replace(/\.tsx?$/,'.mjs');
+ const target=path.join(root,'.test-cache',filename);if(compiled.has(abs))return target;compiled.add(abs);
+ let content=await readFile(abs,'utf8');const replacements=[];
+ for(const match of content.matchAll(/from\s+['"]([^'"]+)['"]/g)){
+  const spec=match[1];
+  if(spec==='@geko/platform')replacements.push([spec,'./mock-platform.mjs']);
+  else if(spec.startsWith('.')){const dep=await compile(path.resolve(path.dirname(abs),spec+'.ts'));replacements.push([spec,'./'+path.basename(dep)]);}
+ }
+ for(const [a,b] of replacements)content=content.replaceAll(`'${a}'`,`'${b}'`).replaceAll(`"${a}"`,`"${b}"`);
+ const output=ts.transpileModule(content,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}});await writeFile(target,output.outputText);return target;
+}
 async function load(source){return import(await compile(source));}
-const data=await load('app/api/data/route.ts','data');
-const connection=await load('app/api/connection/route.ts','connection');
-const generate=await load('app/api/generate/route.ts','generate');
-const prompt=await load('lib/prompt.ts','prompt');
-const groups=await load('app/api/groups/route.ts','groups');
-const groupGenerate=await load('app/api/groups/generate/route.ts','group-generate');
+const data=await load('src/app/api/data/route.ts','data');
+const connection=await load('src/app/api/connection/route.ts','connection');
+const generate=await load('src/app/api/generate/route.ts','generate');
+const prompt=await load('src/lib/prompt.ts','prompt');
+const groups=await load('src/app/api/groups/route.ts','groups');
+const groupGenerate=await load('src/app/api/groups/generate/route.ts','group-generate');
 const req=body=>new Request('https://geko.test/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const put=async(kind,record)=>data.PUT(req({kind,data:record}));
 const alice=()=>{globalThis.__gekoUser={userId:'alice',email:'alice@example.test',fullName:'Alice',displayName:'Alice'};};
@@ -34,7 +50,7 @@ test('core app operations and account isolation',async t=>{
  await t.test('a second user cannot read private records or overwrite them',async()=>{bob();const d=await (await data.GET()).json();assert.equal(d.admin,false);assert.equal(d.items.length,0);assert.equal(d.characters.some(c=>c.id===character.id),false);assert.equal((await put('chat',{...chat,title:'Stolen'})).status,403);assert.equal((await generate.POST(req({chatId:chat.id,characterId:character.id}))).status,400);await data.DELETE(req({id:chat.id}));alice();const own=await (await data.GET()).json();assert.equal(own.items.find(i=>i.id===chat.id).title,'Private chat');});
  await t.test('shared characters appear for friends without exposing chats',async()=>{await put('character',{...character,visibility:'shared'});bob();const d=await (await data.GET()).json();assert.equal(d.characters.some(c=>c.id===character.id),true);assert.equal(d.items.length,0);alice();});
  await t.test('generation remains explicitly unavailable until Ollama is configured',async()=>{const r=await generate.POST(req({chatId:chat.id,characterId:character.id}));assert.equal(r.status,503);assert.match((await r.json()).error,/isn’t connected/);});
- await t.test('only the owner can configure a reachable HTTPS Ollama gateway',async()=>{bob();assert.equal((await connection.POST(req({url:'https://ai.example.test',model:'test'}))).status,403);alice();assert.equal((await connection.POST(req({url:'http://192.168.2.1:11434',model:'test'}))).status,400);assert.equal((await connection.POST(req({url:'https://ai.example.test',model:'test',token:'server-secret'}))).status,200);const d=await (await data.GET()).json();assert.equal(d.connection.hasToken,true);assert.equal(d.connection.token,undefined);});
+ await t.test('only the owner can configure a local or HTTPS Ollama endpoint',async()=>{bob();assert.equal((await connection.POST(req({url:'https://ai.example.test',model:'test'}))).status,403);alice();assert.equal((await connection.POST(req({url:'http://192.168.2.1:11434',model:'test'}))).status,200);assert.equal((await connection.POST(req({url:'https://ai.example.test',model:'test',token:'server-secret'}))).status,200);const d=await (await data.GET()).json();assert.equal(d.connection.hasToken,true);assert.equal(d.connection.token,undefined);});
  await t.test('model testing and streaming chat forward through the server',async()=>{const originalFetch=globalThis.fetch;let forwarded;globalThis.fetch=async(url,init)=>{assert.equal(init.headers.Authorization,'Bearer server-secret');if(url.endsWith('/api/tags'))return Response.json({models:[{name:'test'}]});forwarded=JSON.parse(init.body);return new Response(JSON.stringify({message:{content:'A silver forest awaits.'},done:true})+'\n',{headers:{'Content-Type':'application/x-ndjson'}});};try{const models=await (await connection.POST(req({url:'https://ai.example.test',action:'test'}))).json();assert.deepEqual(models.models,['test']);const r=await generate.POST(req({chatId:chat.id,characterId:character.id}));assert.equal(r.status,200);assert.match(await r.text(),/silver forest/);assert.equal(forwarded.stream,true);assert.match(forwarded.messages[0].content,/Alice’s private memory/);assert.match(forwarded.messages[0].content,/A silver forest/);}finally{globalThis.fetch=originalFetch;}});
  await t.test('the server forwards the first token before Ollama completes',async()=>{
   const originalFetch=globalThis.fetch;let source;
@@ -168,7 +184,7 @@ test('release validation and editing workflows',async t=>{
   await connection.POST(req({url:'https://ai.example.test',model:'test',token:'temporary-secret'}));
   let r=await connection.POST(req({url:'https://ai.example.test',model:'test'}));assert.equal((await r.json()).connection.hasToken,true);
   r=await connection.POST(req({url:'https://ai.example.test',model:'test',clearToken:true}));assert.equal((await r.json()).connection.hasToken,false);
-  for(const url of ['http://example.test','https://user:pass@example.test','https://127.0.0.1','https://[::1]','https://example.test?token=secret'])assert.equal((await connection.POST(req({url,model:'test'}))).status,400,url);
+  for(const url of ['ftp://example.test','https://user:pass@example.test','https://example.test?token=secret'])assert.equal((await connection.POST(req({url,model:'test'}))).status,400,url);
  });
  await t.test('a gateway HTTP failure is surfaced without leaving a group locked',async()=>{
   const c=(await (await action('create',{characters:['pip']})).json()).chat;

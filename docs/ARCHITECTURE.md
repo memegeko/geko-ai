@@ -16,16 +16,16 @@
 There is no mandatory external identity service, database service, or inference
 provider in the standalone path. Google/GitHub are optional external identities.
 
-## Runtime separation
+## Server runtime
 
-`@geko/platform` resolves to `lib/selfhost/platform.ts` in the Next build and
-`lib/platform.ts` in the Sites/Vinext build. The standalone adapter uses local
-SQLite and Better Auth; the Sites adapter uses D1 and authenticated platform
-headers. This keeps the same editors, chat routes, layouts, assets, and prompt
-logic while separating environment-specific identity and storage.
+One standalone Next.js server handles UI and API routes. `@geko/platform`
+resolves to `src/lib/platform.ts`, which uses local Better Auth sessions and
+SQLite. `src/lib/bootstrap.mjs` seeds an absent AI connection from installer
+variables without overwriting settings saved by the owner.
 
-The standalone server does not accept platform headers as proof of identity.
-The cloud build does not import Node's SQLite or standalone authentication.
+Compose runs the site and optionally Ollama on a private network. Application
+and model data use separate named volumes. The NVIDIA override reserves GPU
+devices for local Ollama. The app does not publish the Ollama API to the host.
 
 ## Stored data
 
@@ -69,11 +69,11 @@ MFA sessions may verify or sign out; they cannot modify security settings.
 
 | Location | Responsibility |
 | --- | --- |
-| `app/geko-app.tsx`, `app/globals.css` | Existing product UI and editors. |
-| `app/login`, `app/security` | Standalone sign-in and account security. |
-| `app/api/auth`, `app/api/account` | Auth transport/config and account state. |
-| `lib/selfhost/auth.mjs` | Auth options, invite policy, MFA application gate. |
-| `lib/selfhost/storage.mjs` | Local SQLite and transactional D1-shaped adapter. |
-| `lib/server.ts`, `app/api/*` | Account-scoped records, settings, groups, generation. |
-| `lib/prompt.ts`, `lib/reply-stream.ts` | Context assembly and progressive streaming. |
-| `Dockerfile`, `compose.yaml`, `scripts/install.sh` | Standalone operations. |
+| `src/app/geko-app.tsx`, `src/app/globals.css` | Existing product UI and editors. |
+| `src/app/login`, `src/app/security` | Standalone sign-in and account security. |
+| `src/app/api/auth`, `src/app/api/account` | Auth transport/config and account state. |
+| `src/lib/auth.mjs` | Auth options, invite policy, MFA application gate. |
+| `src/lib/storage.mjs` | Local SQLite and transactional prepared-query adapter. |
+| `src/lib/server.ts`, `src/app/api/*` | Account-scoped records, settings, groups, generation. |
+| `src/lib/prompt.ts`, `src/lib/reply-stream.ts` | Context assembly and progressive streaming. |
+| `Dockerfile`, `compose.yaml`, `install.sh` | Standalone operations. |
